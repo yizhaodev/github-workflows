@@ -31,6 +31,6 @@ jobs:
     steps:
       - name: Sync ${{ matrix.fork }} from ${{ matrix.upstream }}
         run: |
-          git clone --bare "https://x-access-token:${{ secrets.SYNC_TOKEN }}@github.com/${{ matrix.upstream }}.git" repo
+          git clone --bare "https://x-access-token:${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}@github.com/${{ matrix.upstream }}.git" repo
           cd repo
-          git push --force "https://x-access-token:${{ secrets.SYNC_TOKEN }}@github.com/${{ matrix.fork }}.git" "refs/heads/${{ matrix.branch }}:refs/heads/${{ matrix.branch }}"
+          git push --force "https://x-access-token:${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}@github.com/${{ matrix.fork }}.git" "refs/heads/${{ matrix.branch }}:refs/heads/${{ matrix.branch }}"
