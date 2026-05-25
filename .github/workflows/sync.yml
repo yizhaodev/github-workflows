@@ -6,31 +6,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  list-forks:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.forks.outputs.matrix }}
+    steps:
+      - name: Discover all forks
+        id: forks
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}
+        run: |
+          matrix=$(gh api user/repos --paginate --jq             '[.[] | select(.fork) | {fork: .full_name, upstream: .parent.full_name, branch: .parent.default_branch}]')
+          echo "Discovered forks:"
+          echo "$matrix" | jq -r '.[] | "  \(.upstream) -> \(.fork) (branch: \(.branch))"'
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
   sync:
+    needs: list-forks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - upstream: llm-d-incubation/batch-gateway
-            fork: yizhaodev/batch-gateway
-            branch: main
-          - upstream: llm-d-incubation/llm-d-async
-            fork: yizhaodev/llm-d-async
-            branch: main
-          - upstream: llm-d/llm-d-inference-sim
-            fork: yizhaodev/llm-d-inference-sim
-            branch: main
-          - upstream: opendatahub-io/llm-d-batch-gateway-operator
-            fork: yizhaodev/llm-d-batch-gateway-operator
-            branch: main
-          - upstream: opendatahub-io/opendatahub-operator
-            fork: yizhaodev/opendatahub-operator
-            branch: main
-
+        include: ${{ fromJson(needs.list-forks.outputs.matrix) }}
     steps:
-      - name: Sync ${{ matrix.fork }} from ${{ matrix.upstream }}
+      - name: Sync ${{ matrix.fork }}
         run: |
+          echo "Syncing: ${{ matrix.upstream }} -> ${{ matrix.fork }} (branch: ${{ matrix.branch }})"
           git clone --bare "https://x-access-token:${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}@github.com/${{ matrix.upstream }}.git" repo
           cd repo
-          git push --force "https://x-access-token:${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}@github.com/${{ matrix.fork }}.git" "refs/heads/${{ matrix.branch }}:refs/heads/${{ matrix.branch }}"
+          git push --force "https://x-access-token:${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}@github.com/${{ matrix.fork }}.git"             "refs/heads/${{ matrix.branch }}:refs/heads/${{ matrix.branch }}"
+          echo "Done: ${{ matrix.upstream }} -> ${{ matrix.fork }}"
