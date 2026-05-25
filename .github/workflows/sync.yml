@@ -13,21 +13,40 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}
         run: |
+          echo "========================================="
+          echo " Discovering forks for yizhaodev"
+          echo "========================================="
           forks=$(gh api user/repos --paginate --jq '.[] | select(.fork and .owner.login == "yizhaodev") | .full_name')
+          entries=()
           for repo in $forks; do
             info=$(gh api "repos/${repo}" --jq '{upstream: .parent.full_name, branch: .parent.default_branch}')
             upstream=$(echo "$info" | jq -r '.upstream')
             branch=$(echo "$info" | jq -r '.branch')
             if [ "$upstream" = "null" ]; then
-              echo "Skipping ${repo}: no parent info"
+              echo "  [SKIP] ${repo}: no parent info"
               continue
             fi
-            echo "Syncing: ${upstream} -> ${repo} (branch: ${branch})"
+            echo "  [FOUND] ${upstream} -> ${repo} (branch: ${branch})"
+            entries+=("${repo}|${upstream}|${branch}")
+          done
+          echo ""
+          echo "========================================="
+          echo " Syncing ${#entries[@]} fork(s)"
+          echo "========================================="
+          for entry in "${entries[@]}"; do
+            IFS='|' read -r repo upstream branch <<< "$entry"
+            echo ""
+            echo "-----------------------------------------"
+            echo " ${upstream} -> ${repo} (${branch})"
+            echo "-----------------------------------------"
             git clone --bare "https://x-access-token:${GH_TOKEN}@github.com/${upstream}.git" tmp-repo
             cd tmp-repo
             git push --force "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git"               "refs/heads/${branch}:refs/heads/${branch}"
             cd ..
             rm -rf tmp-repo
-            echo "Done: ${upstream} -> ${repo}"
-            echo "---"
+            echo " Done."
           done
+          echo ""
+          echo "========================================="
+          echo " All syncs complete."
+          echo "========================================="
