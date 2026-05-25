@@ -12,12 +12,13 @@ jobs:
       - name: Sync all forks
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           echo "Sync all forks"
           echo "========================================="
-          echo " Discovering forks for yizhaodev"
+          echo " Discovering forks for ${OWNER}"
           echo "========================================="
-          forks=$(gh api user/repos --paginate --jq '.[] | select(.fork and .owner.login == "yizhaodev") | .full_name')
+          forks=$(gh api user/repos --paginate --jq ".[] | select(.fork and .owner.login == \"${OWNER}\") | .full_name")
           entries=()
           for repo in $forks; do
             info=$(gh api "repos/${repo}" --jq '{upstream: .parent.full_name, branch: .parent.default_branch}')
