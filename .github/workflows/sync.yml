@@ -6,47 +6,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  list-forks:
+  sync:
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.forks.outputs.matrix }}
     steps:
-      - name: Discover all forks
-        id: forks
+      - name: Sync all forks
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}
         run: |
           forks=$(gh api user/repos --paginate --jq '.[] | select(.fork and .owner.login == "yizhaodev") | .full_name')
-          matrix="[]"
           for repo in $forks; do
-            info=$(gh api "repos/${repo}" --jq '{fork: .full_name, upstream: .parent.full_name, branch: .parent.default_branch}')
+            info=$(gh api "repos/${repo}" --jq '{upstream: .parent.full_name, branch: .parent.default_branch}')
             upstream=$(echo "$info" | jq -r '.upstream')
-            if [ "$upstream" != "null" ]; then
-              matrix=$(echo "$matrix" | jq --argjson item "$info" '. + [$item]')
-            else
+            branch=$(echo "$info" | jq -r '.branch')
+            if [ "$upstream" = "null" ]; then
               echo "Skipping ${repo}: no parent info"
+              continue
             fi
+            echo "Syncing: ${upstream} -> ${repo} (branch: ${branch})"
+            git clone --bare "https://x-access-token:${GH_TOKEN}@github.com/${upstream}.git" tmp-repo
+            cd tmp-repo
+            git push --force "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git"               "refs/heads/${branch}:refs/heads/${branch}"
+            cd ..
+            rm -rf tmp-repo
+            echo "Done: ${upstream} -> ${repo}"
+            echo "---"
           done
-          echo "Discovered forks:"
-          echo "$matrix" | jq -r '.[] | "  \(.upstream) -> \(.fork) (branch: \(.branch))"'
-          {
-            echo "matrix<<MATRIX_EOF"
-            echo "$matrix"
-            echo "MATRIX_EOF"
-          } >> "$GITHUB_OUTPUT"
-
-  sync:
-    needs: list-forks
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.list-forks.outputs.matrix) }}
-    steps:
-      - name: Sync ${{ matrix.fork }}
-        run: |
-          echo "Syncing: ${{ matrix.upstream }} -> ${{ matrix.fork }} (branch: ${{ matrix.branch }})"
-          git clone --bare "https://x-access-token:${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}@github.com/${{ matrix.upstream }}.git" repo
-          cd repo
-          git push --force "https://x-access-token:${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}@github.com/${{ matrix.fork }}.git"             "refs/heads/${{ matrix.branch }}:refs/heads/${{ matrix.branch }}"
-          echo "Done: ${{ matrix.upstream }} -> ${{ matrix.fork }}"
