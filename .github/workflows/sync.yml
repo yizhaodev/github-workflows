@@ -16,10 +16,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}
         run: |
-          matrix=$(gh api user/repos --paginate --jq             '[.[] | select(.fork) | {fork: .full_name, upstream: .parent.full_name, branch: .parent.default_branch}]')
+          matrix=$(gh api user/repos --paginate --jq             '[.[] | select(.fork and .owner.login == "yizhaodev") | {fork: .full_name, upstream: .parent.full_name, branch: .parent.default_branch}]')
           echo "Discovered forks:"
           echo "$matrix" | jq -r '.[] | "  \(.upstream) -> \(.fork) (branch: \(.branch))"'
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          {
+            echo "matrix<<MATRIX_EOF"
+            echo "$matrix"
+            echo "MATRIX_EOF"
+          } >> "$GITHUB_OUTPUT"
 
   sync:
     needs: list-forks
