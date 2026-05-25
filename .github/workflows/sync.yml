@@ -13,6 +13,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SYNC_UPSTREAM_REPO_TOKEN }}
         run: |
+          echo "Sync all forks"
           echo "========================================="
           echo " Discovering forks for yizhaodev"
           echo "========================================="
