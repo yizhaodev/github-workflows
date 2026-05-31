@@ -43,7 +43,8 @@ jobs:
             echo "-----------------------------------------"
             git clone --bare "https://x-access-token:${GH_TOKEN}@github.com/${upstream}.git" tmp-repo
             cd tmp-repo
-            git push "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git"               "refs/heads/${branch}:refs/heads/${branch}"
+            git push --force "https://x-access-token:${GH_TOKEN}@github.com/${repo}.git" \
+              "refs/heads/${branch}:refs/heads/${branch}" || echo " [WARN] Failed to sync ${repo}"
             cd ..
             rm -rf tmp-repo
             echo " Done."
